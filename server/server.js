@@ -13,7 +13,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://your-site-name.netlify.app",
+      "https://period-booking-system.netlify.app",
     ],
     credentials: true,
   })
