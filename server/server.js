@@ -7,11 +7,14 @@ const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const historyRoutes = require("./routes/historyRoutes");
 
-const app = express();
+const cors = require("cors");
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://your-site-name.netlify.app",
+    ],
     credentials: true,
   })
 );
