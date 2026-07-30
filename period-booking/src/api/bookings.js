@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = "http://localhost:5000/api";
+const API = "https://period-booking-system.onrender.com";
 
 const authConfig = (token) => ({
   headers: {
