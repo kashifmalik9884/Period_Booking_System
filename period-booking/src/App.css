@@ -1,0 +1,79 @@
+.app {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  background: #f7f9fc;
+  min-height: 100vh;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.form input,
+.form select,
+.form button {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.form button {
+  background: #1976d2;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.form button:hover {
+  background: #125aa3;
+}
+
+.booking-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.booking-table th,
+.booking-table td {
+  border: 1px solid #d9d9d9;
+  vertical-align: top;
+  padding: 8px;
+  text-align: center;
+}
+
+.booking-table th {
+  background: #eef3f8;
+}
+
+.slot {
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.available {
+  background: #e9f7ef;
+  color: #1b5e20;
+}
+
+.booked {
+  background: #fde8e8;
+  color: #b71c1c;
+  border-color: #f5b5b5;
+}
+
+.slot:last-child {
+  margin-bottom: 0;
+}
