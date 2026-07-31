@@ -14,9 +14,30 @@ const getTodayDateString = () => {
   return formatDateForInput(new Date());
 };
 
-const formatDisplayDate = (dateString) => {
-  const date = new Date(`${dateString}T00:00:00`);
-  return date.toLocaleDateString("en-GB", {
+const formatDisplayDate = (value) => {
+  if (!value) {
+    return "-";
+  }
+
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-");
+    const safeDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+    return safeDate.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return String(value);
+  }
+
+  return parsedDate.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "2-digit",
     month: "short",
@@ -25,7 +46,17 @@ const formatDisplayDate = (dateString) => {
 };
 
 const formatDateTime = (value) => {
-  return new Date(value).toLocaleString("en-GB", {
+  if (!value) {
+    return "-";
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return String(value);
+  }
+
+  return parsedDate.toLocaleString("en-GB", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -54,10 +85,22 @@ export default function Bookings() {
       const res = await getBookings();
 
       const upcomingBookings = res.data
-        .filter((booking) => booking.booking_date > todayDate)
+        .filter((booking) => {
+          const bookingDate =
+            typeof booking.booking_date === "string"
+              ? booking.booking_date.slice(0, 10)
+              : "";
+
+          return bookingDate > todayDate;
+        })
         .sort((a, b) => {
-          if (a.booking_date !== b.booking_date) {
-            return a.booking_date.localeCompare(b.booking_date);
+          const dateA =
+            typeof a.booking_date === "string" ? a.booking_date.slice(0, 10) : "";
+          const dateB =
+            typeof b.booking_date === "string" ? b.booking_date.slice(0, 10) : "";
+
+          if (dateA !== dateB) {
+            return dateA.localeCompare(dateB);
           }
 
           if (Number(a.period_no) !== Number(b.period_no)) {
@@ -149,9 +192,7 @@ export default function Bookings() {
             <div key={booking.id} className="booking-list-card">
               <div className="booking-list-top">
                 <div>
-                  <div className="booking-chip">
-                    {booking.room_name}
-                  </div>
+                  <div className="booking-chip">{booking.room_name}</div>
 
                   <h3 className="booking-title">
                     {formatDisplayDate(booking.booking_date)} • Period {booking.period_no}
