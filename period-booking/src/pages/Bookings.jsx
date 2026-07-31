@@ -1,7 +1,39 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBookings, deleteBooking } from "../api/bookings";
 import { useAuth } from "../context/AuthContext";
+
+const formatDateForInput = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayDateString = () => {
+  return formatDateForInput(new Date());
+};
+
+const formatDisplayDate = (dateString) => {
+  const date = new Date(`${dateString}T00:00:00`);
+  return date.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatDateTime = (value) => {
+  return new Date(value).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+};
 
 export default function Bookings() {
   const [bookings, setBookings] = useState([]);
@@ -12,20 +44,38 @@ export default function Bookings() {
   const { token, admin, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const loadBookings = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const res = await getBookings();
-        setBookings(res.data);
-      } catch (error) {
-        setError("Failed to load active bookings");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const todayDate = useMemo(() => getTodayDateString(), []);
 
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const res = await getBookings();
+
+      const upcomingBookings = res.data
+        .filter((booking) => booking.booking_date > todayDate)
+        .sort((a, b) => {
+          if (a.booking_date !== b.booking_date) {
+            return a.booking_date.localeCompare(b.booking_date);
+          }
+
+          if (Number(a.period_no) !== Number(b.period_no)) {
+            return Number(a.period_no) - Number(b.period_no);
+          }
+
+          return a.room_name.localeCompare(b.room_name);
+        });
+
+      setBookings(upcomingBookings);
+    } catch (error) {
+      setError("Failed to load active bookings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (isAdmin) {
       loadBookings();
     }
@@ -99,13 +149,22 @@ export default function Bookings() {
             <div key={booking.id} className="booking-list-card">
               <div className="booking-list-top">
                 <div>
-                  <h3>
-                    {booking.day_name} • Period {booking.period_no}
+                  <div className="booking-chip">
+                    {booking.room_name}
+                  </div>
+
+                  <h3 className="booking-title">
+                    {formatDisplayDate(booking.booking_date)} • Period {booking.period_no}
                   </h3>
-                  <p className="helper-text">{booking.room_name}</p>
+
+                  <p className="booking-subtitle">
+                    Current active booking record
+                  </p>
                 </div>
 
-                <div className="booking-meta">Booking ID {booking.id}</div>
+                <div className="booking-id-badge">
+                  Booking ID #{booking.id}
+                </div>
               </div>
 
               <div className="booking-info-grid">
@@ -121,16 +180,12 @@ export default function Bookings() {
 
                 <div className="booking-info-block">
                   <span className="booking-info-label">Created At</span>
-                  <span className="booking-info-value">
-                    {new Date(booking.created_at).toLocaleString()}
-                  </span>
+                  <span className="booking-info-value">{formatDateTime(booking.created_at)}</span>
                 </div>
 
                 <div className="booking-info-block">
                   <span className="booking-info-label">Updated At</span>
-                  <span className="booking-info-value">
-                    {new Date(booking.updated_at).toLocaleString()}
-                  </span>
+                  <span className="booking-info-value">{formatDateTime(booking.updated_at)}</span>
                 </div>
               </div>
 
