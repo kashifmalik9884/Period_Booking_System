@@ -12,6 +12,18 @@ const formatDateForInput = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const normalizeBookingDate = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string" && value.length >= 10) {
+    return value.slice(0, 10);
+  }
+
+  return formatDateForInput(new Date(value));
+};
+
 const getUpcomingSchoolDays = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -56,10 +68,16 @@ export default function Home() {
     try {
       setLoading(true);
       setError("");
-      const res = await getBookings();
 
+      const res = await getBookings();
       const allowedDates = new Set(weekDates.map((day) => day.booking_date));
-      const filteredBookings = res.data.filter((booking) =>
+
+      const normalizedBookings = res.data.map((booking) => ({
+        ...booking,
+        booking_date: normalizeBookingDate(booking.booking_date),
+      }));
+
+      const filteredBookings = normalizedBookings.filter((booking) =>
         allowedDates.has(booking.booking_date)
       );
 
@@ -76,10 +94,15 @@ export default function Home() {
   }, []);
 
   const handleBooked = (newBooking) => {
+    const normalizedBooking = {
+      ...newBooking,
+      booking_date: normalizeBookingDate(newBooking.booking_date),
+    };
+
     const allowedDates = new Set(weekDates.map((day) => day.booking_date));
 
-    if (allowedDates.has(newBooking.booking_date)) {
-      setBookings((prev) => [newBooking, ...prev]);
+    if (allowedDates.has(normalizedBooking.booking_date)) {
+      setBookings((prev) => [normalizedBooking, ...prev]);
     }
 
     setSelectedSlot(null);
