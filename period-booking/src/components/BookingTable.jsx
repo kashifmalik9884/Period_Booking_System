@@ -3,6 +3,22 @@ import React from "react";
 const periods = [1, 2, 3, 4, 5, 6, 7];
 const rooms = ["AV Room 1", "AV Room 2"];
 
+const normalizeBookingDate = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string" && value.length >= 10) {
+    return value.slice(0, 10);
+  }
+
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const formatHeaderLabel = (dateString) => {
   const date = new Date(`${dateString}T00:00:00`);
 
@@ -26,14 +42,14 @@ export default function BookingTable({
   const getSlot = (bookingDate, period, room) =>
     bookings.find(
       (booking) =>
-        booking.booking_date === bookingDate &&
+        normalizeBookingDate(booking.booking_date) === normalizeBookingDate(bookingDate) &&
         Number(booking.period_no) === Number(period) &&
         booking.room_name === room
     );
 
   const isSelected = (bookingDate, period, room) =>
     selectedSlot &&
-    selectedSlot.booking_date === bookingDate &&
+    normalizeBookingDate(selectedSlot.booking_date) === normalizeBookingDate(bookingDate) &&
     Number(selectedSlot.period_no) === Number(period) &&
     selectedSlot.room_name === room;
 
