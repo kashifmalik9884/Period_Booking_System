@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { getBookings } from "../api/bookings";
 import BookingForm from "../components/BookingForm";
 import BookingTable from "../components/BookingTable";
+import TodayAvailability from "../components/TodayAvailability";
 import { useAuth } from "../context/AuthContext";
 
 const formatDateForInput = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 };
 
@@ -21,7 +23,24 @@ const normalizeBookingDate = (value) => {
     return value.slice(0, 10);
   }
 
-  return formatDateForInput(new Date(value));
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDateForInput(value);
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  return formatDateForInput(parsedDate);
+};
+
+const getTodayDateString = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return formatDateForInput(today);
 };
 
 const getUpcomingSchoolDays = () => {
@@ -39,7 +58,9 @@ const getUpcomingSchoolDays = () => {
     if (dayNumber >= 1 && dayNumber <= 6) {
       result.push({
         booking_date: formatDateForInput(cursor),
-        day_name: cursor.toLocaleDateString("en-GB", { weekday: "long" }),
+        day_name: cursor.toLocaleDateString("en-GB", {
+          weekday: "long",
+        }),
         label: cursor.toLocaleDateString("en-GB", {
           weekday: "long",
           day: "2-digit",
@@ -55,6 +76,7 @@ const getUpcomingSchoolDays = () => {
 
 export default function Home() {
   const [bookings, setBookings] = useState([]);
+  const [todayBookings, setTodayBookings] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,26 +85,35 @@ export default function Home() {
   const navigate = useNavigate();
 
   const weekDates = useMemo(() => getUpcomingSchoolDays(), []);
+  const todayDate = useMemo(() => getTodayDateString(), []);
 
   const loadBookings = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const res = await getBookings();
-      const allowedDates = new Set(weekDates.map((day) => day.booking_date));
+      const response = await getBookings();
 
-      const normalizedBookings = res.data.map((booking) => ({
+      const normalizedBookings = response.data.map((booking) => ({
         ...booking,
         booking_date: normalizeBookingDate(booking.booking_date),
       }));
 
-      const filteredBookings = normalizedBookings.filter((booking) =>
-        allowedDates.has(booking.booking_date)
+      const allowedFutureDates = new Set(
+        weekDates.map((day) => day.booking_date)
       );
 
-      setBookings(filteredBookings);
-    } catch (error) {
+      const currentDayBookings = normalizedBookings.filter(
+        (booking) => booking.booking_date === todayDate
+      );
+
+      const futureBookings = normalizedBookings.filter((booking) =>
+        allowedFutureDates.has(booking.booking_date)
+      );
+
+      setTodayBookings(currentDayBookings);
+      setBookings(futureBookings);
+    } catch (requestError) {
       setError("Failed to load bookings");
     } finally {
       setLoading(false);
@@ -99,10 +130,22 @@ export default function Home() {
       booking_date: normalizeBookingDate(newBooking.booking_date),
     };
 
-    const allowedDates = new Set(weekDates.map((day) => day.booking_date));
+    const allowedFutureDates = new Set(
+      weekDates.map((day) => day.booking_date)
+    );
 
-    if (allowedDates.has(normalizedBooking.booking_date)) {
-      setBookings((prev) => [normalizedBooking, ...prev]);
+    if (normalizedBooking.booking_date === todayDate) {
+      setTodayBookings((previousBookings) => [
+        ...previousBookings,
+        normalizedBooking,
+      ]);
+    }
+
+    if (allowedFutureDates.has(normalizedBooking.booking_date)) {
+      setBookings((previousBookings) => [
+        normalizedBooking,
+        ...previousBookings,
+      ]);
     }
 
     setSelectedSlot(null);
@@ -118,6 +161,7 @@ export default function Home() {
 
   const handleSlotSelect = (slot) => {
     setSelectedSlot(slot);
+
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -129,59 +173,89 @@ export default function Home() {
       <div className="page-header">
         <div>
           <h1>Period Booking System</h1>
+
           <p className="page-subtitle">
-            Book only upcoming school dates. Same-day and previous-day bookings are not allowed.
+            View today&apos;s AV room status and book an available future period.
           </p>
         </div>
 
         <div className="header-actions">
           {isAdmin ? (
             <>
-              <span className="admin-badge">Admin: {admin.username}</span>
-              <button className="secondary-btn" onClick={() => navigate("/bookings")}>
+              <span className="admin-badge">
+                Admin: {admin?.username || "Administrator"}
+              </span>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => navigate("/bookings")}
+              >
                 Active Bookings
               </button>
-              <button className="secondary-btn" onClick={() => navigate("/history")}>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => navigate("/history")}
+              >
                 View History
               </button>
-              <button className="danger-btn" onClick={logout}>
+
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={logout}
+              >
                 Logout
               </button>
             </>
           ) : (
-            <button className="secondary-btn" onClick={() => navigate("/admin")}>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => navigate("/admin")}
+            >
               Admin Login
             </button>
           )}
         </div>
       </div>
 
-      <BookingForm
-        onBooked={handleBooked}
-        selectedSlot={selectedSlot}
-        weekDates={weekDates}
-      />
-
-      <div className="section-spacing">
-        {loading ? (
-          <div className="card">
-            <p className="info-text">Loading bookings...</p>
-          </div>
-        ) : error ? (
-          <div className="card">
-            <p className="error-text">{error}</p>
-          </div>
-        ) : (
-          <BookingTable
-            bookings={bookings}
-            weekDates={weekDates}
+      {loading ? (
+        <div className="card">
+          <p className="info-text">Loading room availability...</p>
+        </div>
+      ) : error ? (
+        <div className="card">
+          <p className="error-text">{error}</p>
+        </div>
+      ) : (
+        <>
+          <TodayAvailability
+            bookings={todayBookings}
             isAdmin={isAdmin}
             onEdit={handleEdit}
-            onSlotSelect={handleSlotSelect}
-            selectedSlot={selectedSlot}
           />
-        )}
-      </div>
+
+          <BookingForm
+            onBooked={handleBooked}
+            selectedSlot={selectedSlot}
+            weekDates={weekDates}
+          />
+
+          <div className="section-spacing">
+            <BookingTable
+              bookings={bookings}
+              weekDates={weekDates}
+              isAdmin={isAdmin}
+              onEdit={handleEdit}
+              onSlotSelect={handleSlotSelect}
+              selectedSlot={selectedSlot}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
