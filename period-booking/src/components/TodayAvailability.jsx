@@ -16,7 +16,7 @@ const normalizeBookingDate = (value) => {
     return "";
   }
 
-  if (typeof value === "string" && value.length >= 10) {
+  if (typeof value === "string") {
     return value.slice(0, 10);
   }
 
@@ -66,9 +66,7 @@ export default function TodayAvailability({
       <div className="today-availability-header">
         <div>
           <span className="section-kicker">Live room status</span>
-
           <h2>Today&apos;s AV Room Availability</h2>
-
           <p className="helper-text">{today.label}</p>
         </div>
 
@@ -90,7 +88,6 @@ export default function TodayAvailability({
           <thead>
             <tr>
               <th>Period</th>
-
               {rooms.map((room) => (
                 <th key={room}>{room}</th>
               ))}
@@ -100,9 +97,7 @@ export default function TodayAvailability({
           <tbody>
             {periods.map((period) => (
               <tr key={period}>
-                <td className="today-period-cell">
-                  Period {period}
-                </td>
+                <td className="today-period-cell">Period {period}</td>
 
                 {rooms.map((room) => {
                   const booking = getBooking(period, room);
@@ -111,22 +106,18 @@ export default function TodayAvailability({
                     <td key={room}>
                       {booking ? (
                         <div className="today-slot today-slot-booked">
-                          <div className="today-slot-status">
-                            <span className="status-icon">✕</span>
-                            Booked
+                          <div className="today-slot-status booked-state">
+                            <span className="status-icon status-icon-booked">✕</span>
+                            <span>Booked</span>
                           </div>
 
                           <div className="today-booked-by">
                             <span>Booked by</span>
-                            <strong>
-                              {booking.booked_by || "Unknown user"}
-                            </strong>
+                            <strong>{booking.booked_by || "Unknown user"}</strong>
                           </div>
 
                           {booking.purpose && (
-                            <div className="today-purpose">
-                              {booking.purpose}
-                            </div>
+                            <div className="today-purpose">{booking.purpose}</div>
                           )}
 
                           {isAdmin && (
@@ -141,9 +132,9 @@ export default function TodayAvailability({
                         </div>
                       ) : (
                         <div className="today-slot today-slot-vacant">
-                          <div className="today-slot-status">
-                            <span className="status-icon">✓</span>
-                            Vacant
+                          <div className="today-slot-status vacant-state">
+                            <span className="status-icon status-icon-vacant">✓</span>
+                            <span>Vacant</span>
                           </div>
 
                           <div className="today-vacant-text">
