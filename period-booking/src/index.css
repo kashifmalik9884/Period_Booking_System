@@ -1508,3 +1508,30 @@ textarea {
     justify-content: center;
   }
 }
+.status-icon-booked {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+}
+
+.status-icon-vacant {
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
+}
+
+.booked-state,
+.vacant-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
+}
+
+.booked-state {
+  color: #991b1b;
+}
+
+.vacant-state {
+  color: #166534;
+}
