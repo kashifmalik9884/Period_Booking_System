@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { getBookings } from "../api/bookings";
 import BookingForm from "../components/BookingForm";
 import BookingTable from "../components/BookingTable";
-import TodayAvailability from "../components/TodayAvailability";
 import { useAuth } from "../context/AuthContext";
 
 const formatDateForInput = (date) => {
@@ -34,13 +33,6 @@ const normalizeBookingDate = (value) => {
   }
 
   return formatDateForInput(parsedDate);
-};
-
-const getTodayDateString = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return formatDateForInput(today);
 };
 
 const getUpcomingSchoolDays = () => {
@@ -76,7 +68,6 @@ const getUpcomingSchoolDays = () => {
 
 export default function Home() {
   const [bookings, setBookings] = useState([]);
-  const [todayBookings, setTodayBookings] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,7 +76,6 @@ export default function Home() {
   const navigate = useNavigate();
 
   const weekDates = useMemo(() => getUpcomingSchoolDays(), []);
-  const todayDate = useMemo(() => getTodayDateString(), []);
 
   const loadBookings = async () => {
     try {
@@ -99,19 +89,14 @@ export default function Home() {
         booking_date: normalizeBookingDate(booking.booking_date),
       }));
 
-      const allowedFutureDates = new Set(
+      const allowedDates = new Set(
         weekDates.map((day) => day.booking_date)
       );
 
-      const currentDayBookings = normalizedBookings.filter(
-        (booking) => booking.booking_date === todayDate
-      );
-
       const futureBookings = normalizedBookings.filter((booking) =>
-        allowedFutureDates.has(booking.booking_date)
+        allowedDates.has(booking.booking_date)
       );
 
-      setTodayBookings(currentDayBookings);
       setBookings(futureBookings);
     } catch (requestError) {
       setError("Failed to load bookings");
@@ -130,18 +115,11 @@ export default function Home() {
       booking_date: normalizeBookingDate(newBooking.booking_date),
     };
 
-    const allowedFutureDates = new Set(
+    const allowedDates = new Set(
       weekDates.map((day) => day.booking_date)
     );
 
-    if (normalizedBooking.booking_date === todayDate) {
-      setTodayBookings((previousBookings) => [
-        ...previousBookings,
-        normalizedBooking,
-      ]);
-    }
-
-    if (allowedFutureDates.has(normalizedBooking.booking_date)) {
+    if (allowedDates.has(normalizedBooking.booking_date)) {
       setBookings((previousBookings) => [
         normalizedBooking,
         ...previousBookings,
@@ -172,14 +150,24 @@ export default function Home() {
     <div className="page-shell">
       <div className="page-header">
         <div>
+          <span className="section-kicker">School AV scheduling</span>
+
           <h1>Period Booking System</h1>
 
           <p className="page-subtitle">
-            View today&apos;s AV room status and book an available future period.
+            Book an available room and period for an upcoming school day.
           </p>
         </div>
 
         <div className="header-actions">
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => navigate("/today")}
+          >
+            Today&apos;s Availability
+          </button>
+
           {isAdmin ? (
             <>
               <span className="admin-badge">
@@ -222,40 +210,32 @@ export default function Home() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="card">
-          <p className="info-text">Loading room availability...</p>
-        </div>
-      ) : error ? (
-        <div className="card">
-          <p className="error-text">{error}</p>
-        </div>
-      ) : (
-        <>
-          <TodayAvailability
-            bookings={todayBookings}
+      <BookingForm
+        onBooked={handleBooked}
+        selectedSlot={selectedSlot}
+        weekDates={weekDates}
+      />
+
+      <div className="section-spacing">
+        {loading ? (
+          <div className="card">
+            <p className="info-text">Loading bookings...</p>
+          </div>
+        ) : error ? (
+          <div className="card">
+            <p className="error-text">{error}</p>
+          </div>
+        ) : (
+          <BookingTable
+            bookings={bookings}
+            weekDates={weekDates}
             isAdmin={isAdmin}
             onEdit={handleEdit}
-          />
-
-          <BookingForm
-            onBooked={handleBooked}
+            onSlotSelect={handleSlotSelect}
             selectedSlot={selectedSlot}
-            weekDates={weekDates}
           />
-
-          <div className="section-spacing">
-            <BookingTable
-              bookings={bookings}
-              weekDates={weekDates}
-              isAdmin={isAdmin}
-              onEdit={handleEdit}
-              onSlotSelect={handleSlotSelect}
-              selectedSlot={selectedSlot}
-            />
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
