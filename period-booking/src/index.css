@@ -1266,3 +1266,245 @@ textarea {
     justify-content: center;
   }
 }
+.today-page {
+  animation: fadeSlideUp 0.45s ease;
+}
+
+.today-edit-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 12px;
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.today-edit-btn:hover {
+  transform: translateY(-2px);
+}
+
+.today-availability {
+  overflow: hidden;
+  position: relative;
+}
+
+.today-availability::before {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -100px;
+  top: -120px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.08);
+  pointer-events: none;
+}
+
+.today-availability-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+.today-availability-header h2 {
+  margin: 0 0 4px;
+}
+
+.availability-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.86);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.summary-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.booked-summary .summary-dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1);
+}
+
+.vacant-summary .summary-dot {
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.1);
+}
+
+.today-table-wrap {
+  position: relative;
+  z-index: 1;
+  overflow-x: auto;
+  border: 1px solid rgba(191, 219, 254, 0.34);
+  border-radius: 17px;
+}
+
+.today-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.today-table th,
+.today-table td {
+  padding: 12px;
+  border-right: 1px solid rgba(217, 226, 236, 0.8);
+  border-bottom: 1px solid rgba(217, 226, 236, 0.8);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.today-table th:last-child,
+.today-table td:last-child {
+  border-right: none;
+}
+
+.today-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.today-table th {
+  background: linear-gradient(
+    180deg,
+    rgba(238, 242, 255, 0.96),
+    rgba(224, 231, 255, 0.88)
+  );
+  color: #24324a;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.today-period-cell {
+  width: 125px;
+  background: rgba(248, 250, 252, 0.84);
+  color: var(--text);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.today-slot {
+  min-height: 82px;
+  padding: 12px;
+  border-radius: 14px;
+  transition:
+    transform var(--transition),
+    box-shadow var(--transition);
+}
+
+.today-slot:hover {
+  transform: translateY(-2px);
+}
+
+.today-slot-booked {
+  background: linear-gradient(
+    145deg,
+    rgba(254, 226, 226, 0.96),
+    rgba(255, 241, 242, 0.92)
+  );
+  border: 1px solid rgba(248, 113, 113, 0.36);
+}
+
+.today-slot-vacant {
+  background: linear-gradient(
+    145deg,
+    rgba(220, 252, 231, 0.92),
+    rgba(240, 253, 244, 0.94)
+  );
+  border: 1px solid rgba(74, 222, 128, 0.34);
+}
+
+.today-slot-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.today-slot-booked .today-slot-status {
+  color: var(--error-text);
+}
+
+.today-slot-vacant .today-slot-status {
+  color: var(--success-text);
+}
+
+.status-icon {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: currentColor;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.today-booked-by {
+  display: grid;
+  gap: 2px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.today-booked-by strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.today-purpose,
+.today-vacant-text {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.today-empty-message {
+  margin-top: 14px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(240, 253, 244, 0.78);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  color: var(--success-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .today-availability-header {
+    flex-direction: column;
+  }
+
+  .availability-summary {
+    width: 100%;
+  }
+
+  .summary-item {
+    flex: 1;
+    justify-content: center;
+  }
+}
