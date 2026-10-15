@@ -1,38 +1,49 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { getHistory } from "../api/bookings";
+import PageHeader from "../components/PageHeader";
 import { useAuth } from "../context/AuthContext";
+import { formatLongDate, normalizeDate } from "../utils/dates";
 
-function formatBookingData(data) {
+function formatData(data) {
   if (!data) {
     return null;
   }
 
+  // Holiday records
+  if (data.holiday_date) {
+    return [
+      { label: "Date", value: formatLongDate(normalizeDate(data.holiday_date)) },
+      { label: "Reason", value: data.reason || "-" },
+    ];
+  }
+
+  // Booking records
   return [
-    { label: "Day", value: data.day_name || "-" },
+    { label: "Date", value: data.booking_date ? formatLongDate(normalizeDate(data.booking_date)) : data.day_name || "-" },
     { label: "Period", value: data.period_no ? `Period ${data.period_no}` : "-" },
     { label: "Room", value: data.room_name || "-" },
-    { label: "Booked By", value: data.booked_by || "-" },
+    { label: "Booked by", value: data.booked_by || "-" },
     { label: "Purpose", value: data.purpose || "-" },
   ];
 }
 
-function getActionClass(action) {
-  const value = action?.toLowerCase();
+const ACTIONS = {
+  create: { label: "Created", className: "create" },
+  update: { label: "Updated", className: "update" },
+  delete: { label: "Deleted", className: "delete" },
+  holiday_add: { label: "Holiday added", className: "holiday" },
+  holiday_remove: { label: "Holiday removed", className: "holiday" },
+};
 
-  if (value === "create") return "create";
-  if (value === "update") return "update";
-  if (value === "delete") return "delete";
-  return "";
-}
+const getAction = (action) =>
+  ACTIONS[action?.toLowerCase()] || { label: action || "-", className: "" };
 
 export default function History() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const { token, admin, isAdmin, logout } = useAuth();
-  const navigate = useNavigate();
+  const { token, isAdmin } = useAuth();
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -40,8 +51,8 @@ export default function History() {
         setLoading(true);
         const res = await getHistory(token);
         setHistory(res.data);
-      } catch (error) {
-        setError(error.response?.data?.message || "Failed to load booking history");
+      } catch (requestError) {
+        setError(requestError.response?.data?.message || "Failed to load booking history");
       } finally {
         setLoading(false);
       }
@@ -53,28 +64,12 @@ export default function History() {
   }, [isAdmin, token]);
 
   return (
-    <div className="page-shell">
-      <div className="page-header">
-        <div>
-          <h2>Booking History</h2>
-          <p className="page-subtitle">
-            Admin-only audit trail of create, update, and delete actions.
-          </p>
-        </div>
-
-        <div className="header-actions">
-          {admin && <span className="admin-badge">Admin: {admin.username}</span>}
-          <button className="secondary-btn" onClick={() => navigate("/bookings")}>
-            Active Bookings
-          </button>
-          <button className="secondary-btn" onClick={() => navigate("/")}>
-            Back to Home
-          </button>
-          <button className="danger-btn" onClick={logout}>
-            Logout
-          </button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        kicker="Admin"
+        title="Booking history"
+        subtitle="Audit trail of every booking and holiday change."
+      />
 
       {loading ? (
         <div className="card">
@@ -89,28 +84,26 @@ export default function History() {
       ) : (
         <div className="history-list">
           {history.map((item) => {
-            const oldData = formatBookingData(item.old_data);
-            const newData = formatBookingData(item.new_data);
+            const oldData = formatData(item.old_data);
+            const newData = formatData(item.new_data);
+            const action = getAction(item.action);
+            const isHolidayAction = item.action?.toUpperCase().startsWith("HOLIDAY");
 
             return (
               <div key={item.id} className="history-card">
                 <div className="history-top">
-                  <div>
-                    <span className={`history-badge ${getActionClass(item.action)}`}>
-                      {item.action}
-                    </span>
-                  </div>
+                  <span className={`history-badge ${action.className}`}>{action.label}</span>
 
                   <div className="history-meta">
-                    Booking ID {item.booking_id || "-"} • {item.changed_by || "system"} •{" "}
-                    {new Date(item.changed_at).toLocaleString()}
+                    {!isHolidayAction && `Booking #${item.booking_id || "-"} · `}
+                    {item.changed_by || "system"} · {new Date(item.changed_at).toLocaleString()}
                   </div>
                 </div>
 
                 <div className="history-grid">
                   {oldData && (
                     <div className="history-block">
-                      <h4>Old Data</h4>
+                      <h4>Before</h4>
                       {oldData.map((row) => (
                         <p key={row.label} className="history-line">
                           <strong>{row.label}:</strong> {row.value}
@@ -121,7 +114,7 @@ export default function History() {
 
                   {newData && (
                     <div className="history-block">
-                      <h4>New Data</h4>
+                      <h4>After</h4>
                       {newData.map((row) => (
                         <p key={row.label} className="history-line">
                           <strong>{row.label}:</strong> {row.value}
@@ -135,6 +128,6 @@ export default function History() {
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }

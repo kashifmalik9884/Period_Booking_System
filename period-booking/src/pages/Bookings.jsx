@@ -1,49 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBookings, deleteBooking } from "../api/bookings";
+import { deleteBooking, getBookings, getHolidays } from "../api/bookings";
+import PageHeader from "../components/PageHeader";
 import { useAuth } from "../context/AuthContext";
-
-const formatDateForInput = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const getTodayDateString = () => {
-  return formatDateForInput(new Date());
-};
-
-const formatDisplayDate = (value) => {
-  if (!value) {
-    return "-";
-  }
-
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split("-");
-    const safeDate = new Date(Number(year), Number(month) - 1, Number(day));
-
-    return safeDate.toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  }
-
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return String(value);
-  }
-
-  return parsedDate.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
+import { formatLongDate, getTodayKey, normalizeDate } from "../utils/dates";
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -62,74 +22,69 @@ const formatDateTime = (value) => {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
   });
 };
 
 export default function Bookings() {
   const [bookings, setBookings] = useState([]);
+  const [holidayMap, setHolidayMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const { token, admin, isAdmin, logout } = useAuth();
+  const { token, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  const todayDate = useMemo(() => getTodayDateString(), []);
-
-  const loadBookings = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const res = await getBookings();
-
-      const upcomingBookings = res.data
-        .filter((booking) => {
-          const bookingDate =
-            typeof booking.booking_date === "string"
-              ? booking.booking_date.slice(0, 10)
-              : "";
-
-          return bookingDate > todayDate;
-        })
-        .sort((a, b) => {
-          const dateA =
-            typeof a.booking_date === "string" ? a.booking_date.slice(0, 10) : "";
-          const dateB =
-            typeof b.booking_date === "string" ? b.booking_date.slice(0, 10) : "";
-
-          if (dateA !== dateB) {
-            return dateA.localeCompare(dateB);
-          }
-
-          if (Number(a.period_no) !== Number(b.period_no)) {
-            return Number(a.period_no) - Number(b.period_no);
-          }
-
-          return a.room_name.localeCompare(b.room_name);
-        });
-
-      setBookings(upcomingBookings);
-    } catch (error) {
-      setError("Failed to load active bookings");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const todayKey = useMemo(() => getTodayKey(), []);
 
   useEffect(() => {
-    if (isAdmin) {
-      loadBookings();
-    }
-  }, [isAdmin]);
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-  const handleEdit = (id) => {
-    navigate(`/edit/${id}`);
-  };
+        const [bookingResponse, holidayResponse] = await Promise.all([
+          getBookings(),
+          getHolidays().catch(() => ({ data: [] })),
+        ]);
+
+        // Today is included because admins can book it.
+        const active = bookingResponse.data
+          .map((booking) => ({ ...booking, booking_date: normalizeDate(booking.booking_date) }))
+          .filter((booking) => booking.booking_date >= todayKey)
+          .sort((a, b) => {
+            if (a.booking_date !== b.booking_date) {
+              return a.booking_date.localeCompare(b.booking_date);
+            }
+
+            if (Number(a.period_no) !== Number(b.period_no)) {
+              return Number(a.period_no) - Number(b.period_no);
+            }
+
+            return a.room_name.localeCompare(b.room_name);
+          });
+
+        setBookings(active);
+        setHolidayMap(
+          Object.fromEntries(
+            holidayResponse.data.map((holiday) => [normalizeDate(holiday.holiday_date), holiday])
+          )
+        );
+      } catch (requestError) {
+        setError("Failed to load active bookings");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isAdmin) {
+      load();
+    }
+  }, [isAdmin, todayKey]);
 
   const handleDelete = async (id) => {
     const confirmed = window.confirm("Are you sure you want to delete this booking?");
+
     if (!confirmed) {
       return;
     }
@@ -137,43 +92,25 @@ export default function Bookings() {
     try {
       setMessage("");
       await deleteBooking(id, token);
-      setBookings((prev) => prev.filter((booking) => booking.id !== id));
+      setBookings((previous) => previous.filter((booking) => booking.id !== id));
       setMessage("Booking deleted successfully");
-    } catch (error) {
-      setMessage(error.response?.data?.message || "Failed to delete booking");
+    } catch (requestError) {
+      setMessage(requestError.response?.data?.message || "Failed to delete booking");
     }
   };
 
   return (
-    <div className="page-shell">
-      <div className="page-header">
-        <div>
-          <h2>Active Bookings</h2>
-          <p className="page-subtitle">
-            Admin-only page for editing and deleting current bookings.
-          </p>
-        </div>
-
-        <div className="header-actions">
-          {admin && <span className="admin-badge">Admin: {admin.username}</span>}
-          <button className="secondary-btn" onClick={() => navigate("/")}>
-            Back to Home
-          </button>
-          <button className="secondary-btn" onClick={() => navigate("/history")}>
-            View History
-          </button>
-          <button className="danger-btn" onClick={logout}>
-            Logout
-          </button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        kicker="Admin"
+        title="Active bookings"
+        subtitle="Today's and upcoming bookings. Edit or delete them here."
+      />
 
       {message && (
-        <div className="card">
-          <p className={message.toLowerCase().includes("failed") ? "error-text" : "success-text"}>
-            {message}
-          </p>
-        </div>
+        <p className={message.toLowerCase().includes("failed") ? "error-text" : "success-text"}>
+          {message}
+        </p>
       )}
 
       {loading ? (
@@ -188,69 +125,82 @@ export default function Bookings() {
         <div className="empty-state">No active bookings found.</div>
       ) : (
         <div className="booking-list">
-          {bookings.map((booking) => (
-            <div key={booking.id} className="booking-list-card">
-              <div className="booking-list-top">
-                <div>
-                  <div className="booking-chip">{booking.room_name}</div>
+          {bookings.map((booking) => {
+            const holiday = holidayMap[booking.booking_date];
 
-                  <h3 className="booking-title">
-                    {formatDisplayDate(booking.booking_date)} • Period {booking.period_no}
-                  </h3>
+            return (
+              <div key={booking.id} className="booking-list-card">
+                <div className="booking-list-top">
+                  <div>
+                    <div className="booking-chips">
+                      <span className="chip chip-room">{booking.room_name}</span>
+                      {booking.booking_date === todayKey && (
+                        <span className="chip chip-today">Today</span>
+                      )}
+                      {holiday && (
+                        <span className="chip chip-holiday">Holiday: {holiday.reason}</span>
+                      )}
+                    </div>
 
-                  <p className="booking-subtitle">
-                    Current active booking record
+                    <h3 className="booking-title">
+                      {formatLongDate(booking.booking_date)} · Period {booking.period_no}
+                    </h3>
+                  </div>
+
+                  <span className="booking-id-badge">#{booking.id}</span>
+                </div>
+
+                {holiday && (
+                  <p className="warning-text">
+                    This day is now a holiday, so this booking is hidden from the booking table.
+                    Delete it or move it to another date.
                   </p>
+                )}
+
+                <div className="booking-info-grid">
+                  <div className="booking-info-block">
+                    <span className="booking-info-label">Booked by</span>
+                    <span className="booking-info-value">{booking.booked_by}</span>
+                  </div>
+
+                  <div className="booking-info-block">
+                    <span className="booking-info-label">Purpose</span>
+                    <span className="booking-info-value">{booking.purpose}</span>
+                  </div>
+
+                  <div className="booking-info-block">
+                    <span className="booking-info-label">Created</span>
+                    <span className="booking-info-value">{formatDateTime(booking.created_at)}</span>
+                  </div>
+
+                  <div className="booking-info-block">
+                    <span className="booking-info-label">Updated</span>
+                    <span className="booking-info-value">{formatDateTime(booking.updated_at)}</span>
+                  </div>
                 </div>
 
-                <div className="booking-id-badge">
-                  Booking ID #{booking.id}
+                <div className="booking-list-actions">
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => navigate(`/edit/${booking.id}`)}
+                  >
+                    Edit booking
+                  </button>
+
+                  <button
+                    type="button"
+                    className="danger-btn"
+                    onClick={() => handleDelete(booking.id)}
+                  >
+                    Delete booking
+                  </button>
                 </div>
               </div>
-
-              <div className="booking-info-grid">
-                <div className="booking-info-block">
-                  <span className="booking-info-label">Booked By</span>
-                  <span className="booking-info-value">{booking.booked_by}</span>
-                </div>
-
-                <div className="booking-info-block">
-                  <span className="booking-info-label">Purpose</span>
-                  <span className="booking-info-value">{booking.purpose}</span>
-                </div>
-
-                <div className="booking-info-block">
-                  <span className="booking-info-label">Created At</span>
-                  <span className="booking-info-value">{formatDateTime(booking.created_at)}</span>
-                </div>
-
-                <div className="booking-info-block">
-                  <span className="booking-info-label">Updated At</span>
-                  <span className="booking-info-value">{formatDateTime(booking.updated_at)}</span>
-                </div>
-              </div>
-
-              <div className="booking-list-actions">
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => handleEdit(booking.id)}
-                >
-                  Edit Booking
-                </button>
-
-                <button
-                  type="button"
-                  className="danger-btn"
-                  onClick={() => handleDelete(booking.id)}
-                >
-                  Delete Booking
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
-    </div>
+    </>
   );
 }
