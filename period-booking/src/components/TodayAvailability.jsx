@@ -1,89 +1,61 @@
 import React from "react";
+import { normalizeDate } from "../utils/dates";
 
 const periods = [1, 2, 3, 4, 5, 6, 7];
 const rooms = ["AV Room 1", "AV Room 2"];
 
-const formatDateForInput = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-const normalizeBookingDate = (value) => {
-  if (!value) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value.slice(0, 10);
-  }
-
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return formatDateForInput(value);
-  }
-
-  return "";
-};
-
-const getTodayDate = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return {
-    key: formatDateForInput(today),
-    label: today.toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }),
-  };
-};
-
+// `closed` is { type: "holiday" | "sunday", reason } when no bookings can happen today.
 export default function TodayAvailability({
   bookings = [],
+  dateKey,
+  label,
+  closed = null,
   isAdmin = false,
   onEdit,
+  onBook,
 }) {
-  const today = getTodayDate();
-
   const todayBookings = bookings.filter(
-    (booking) => normalizeBookingDate(booking.booking_date) === today.key
+    (booking) => normalizeDate(booking.booking_date) === dateKey
   );
 
-  const getBooking = (period, room) => {
-    return todayBookings.find(
-      (booking) =>
-        Number(booking.period_no) === Number(period) &&
-        booking.room_name === room
+  const getBooking = (period, room) =>
+    todayBookings.find(
+      (booking) => Number(booking.period_no) === Number(period) && booking.room_name === room
     );
-  };
+
+  const totalSlots = periods.length * rooms.length;
+  const vacantCount = closed ? 0 : totalSlots - todayBookings.length;
 
   return (
-    <section className="today-availability card">
-      <div className="today-availability-header">
+    <section className="today-card card">
+      <div className="card-head">
         <div>
           <span className="section-kicker">Live room status</span>
-          <h2>Today&apos;s AV Room Availability</h2>
-          <p className="helper-text">{today.label}</p>
+          <h2>{label}</h2>
         </div>
 
-        <div className="availability-summary">
-          <span className="summary-item booked-summary">
-            <span className="summary-dot" />
-            Booked
-          </span>
-
-          <span className="summary-item vacant-summary">
-            <span className="summary-dot" />
-            Vacant
-          </span>
-        </div>
+        {!closed && (
+          <div className="legend">
+            <span className="legend-item">
+              <span className="legend-dot dot-bad" />
+              Booked
+            </span>
+            <span className="legend-item">
+              <span className="legend-dot dot-ok" />
+              Vacant ({vacantCount})
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="today-table-wrap">
+      {closed && (
+        <div className={`closed-banner closed-${closed.type}`}>
+          <strong>{closed.type === "holiday" ? "Holiday" : "School closed"}</strong>
+          <span>{closed.reason}</span>
+        </div>
+      )}
+
+      <div className="table-wrap">
         <table className="today-table">
           <thead>
             <tr>
@@ -100,46 +72,58 @@ export default function TodayAvailability({
                 <td className="today-period-cell">Period {period}</td>
 
                 {rooms.map((room) => {
+                  if (closed) {
+                    return (
+                      <td key={room}>
+                        <div className="today-slot today-slot-holiday">
+                          <div className="today-slot-status">
+                            {closed.type === "holiday" ? "Holiday" : "Closed"}
+                          </div>
+                          <div className="today-muted">{closed.reason}</div>
+                        </div>
+                      </td>
+                    );
+                  }
+
                   const booking = getBooking(period, room);
 
                   return (
                     <td key={room}>
                       {booking ? (
                         <div className="today-slot today-slot-booked">
-                          <div className="today-slot-status booked-state">
-                            <span className="status-icon status-icon-booked">✕</span>
-                            <span>Booked</span>
-                          </div>
+                          <div className="today-slot-status">Booked</div>
 
                           <div className="today-booked-by">
                             <span>Booked by</span>
                             <strong>{booking.booked_by || "Unknown user"}</strong>
                           </div>
 
-                          {booking.purpose && (
-                            <div className="today-purpose">{booking.purpose}</div>
-                          )}
+                          {booking.purpose && <div className="today-muted">{booking.purpose}</div>}
 
                           {isAdmin && (
                             <button
                               type="button"
-                              className="primary-btn today-edit-btn"
+                              className="secondary-btn small-btn"
                               onClick={() => onEdit(booking)}
                             >
-                              Edit Booking
+                              Edit booking
                             </button>
                           )}
                         </div>
                       ) : (
                         <div className="today-slot today-slot-vacant">
-                          <div className="today-slot-status vacant-state">
-                            <span className="status-icon status-icon-vacant">✓</span>
-                            <span>Vacant</span>
-                          </div>
+                          <div className="today-slot-status">Vacant</div>
+                          <div className="today-muted">Available for this period</div>
 
-                          <div className="today-vacant-text">
-                            Available for this period
-                          </div>
+                          {isAdmin && onBook && (
+                            <button
+                              type="button"
+                              className="primary-btn small-btn"
+                              onClick={() => onBook({ period_no: period, room_name: room })}
+                            >
+                              Book this slot
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -151,7 +135,7 @@ export default function TodayAvailability({
         </table>
       </div>
 
-      {todayBookings.length === 0 && (
+      {!closed && todayBookings.length === 0 && (
         <div className="today-empty-message">
           No bookings have been recorded for today. All AV room periods are vacant.
         </div>

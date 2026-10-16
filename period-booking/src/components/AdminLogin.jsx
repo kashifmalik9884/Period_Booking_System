@@ -12,7 +12,7 @@ export default function AdminLogin() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const redirectTo = location.state?.from?.pathname || "/history";
+  const redirectTo = location.state?.from?.pathname || "/";
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -32,8 +32,8 @@ export default function AdminLogin() {
       const res = await loginAdmin(form);
       login(res.data);
       navigate(redirectTo, { replace: true });
-    } catch (error) {
-      setError(error.response?.data?.message || "Login failed");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Login failed");
     } finally {
       setSubmitting(false);
     }
@@ -42,37 +42,46 @@ export default function AdminLogin() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>Admin Login</h1>
-        <p>Sign in to access booking history, edit bookings, and delete records.</p>
+        <div className="brand auth-brand">
+          <span className="brand-mark">P</span>
+          <span className="brand-text">Period Booking</span>
+        </div>
+
+        <h1>Admin login</h1>
+        <p>Sign in to manage bookings, holidays and booking history.</p>
 
         {error && <p className="error-text">{error}</p>}
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <input
-            name="username"
-            placeholder="Username"
-            value={form.username}
-            onChange={handleChange}
-          />
+          <label className="field">
+            <span className="field-label">Username</span>
+            <input
+              name="username"
+              autoComplete="username"
+              placeholder="Username"
+              value={form.username}
+              onChange={handleChange}
+            />
+          </label>
 
-          <input
-            name="password"
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-          />
+          <label className="field">
+            <span className="field-label">Password</span>
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+            />
+          </label>
 
           <button type="submit" className="primary-btn" disabled={submitting}>
-            {submitting ? "Logging in..." : "Login"}
+            {submitting ? "Logging in..." : "Log in"}
           </button>
 
-          <button
-            type="button"
-            className="ghost-btn"
-            onClick={() => navigate("/")}
-          >
-            Back to Home
+          <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+            Back to home
           </button>
         </form>
       </div>

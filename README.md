@@ -73,15 +73,18 @@ Period-Booking-System/
 
 ### Admin Features
 - Secure admin login
-- View active bookings
-- Edit future bookings
+- View active bookings (today and upcoming)
+- Book slots for **today** (visitors can only book future dates)
+- Edit bookings and move them to another date
 - Delete bookings
-- View complete booking history
+- Add and remove **holidays** (`/holidays`); every slot on a holiday shows as "Holiday" and cannot be booked
+- View complete booking and holiday history
 - Access protected admin-only routes
 
 ### Booking Rules
-- Only future school dates are allowed
+- Visitors can book future school dates only; admins can also book today
 - Sunday is excluded
+- Holidays are closed for booking (existing bookings on a new holiday are kept but hidden)
 - Each room-period-date combination can only be booked once
 - Booked slots show as unavailable in the booking table
 - Booking changes are tracked in history
@@ -92,7 +95,13 @@ The application uses the following PostgreSQL tables:
 
 - `admins`
 - `bookings`
+- `holidays`
 - `booking_history`
+
+### Upgrading an existing database
+
+Fresh installs use `sql/schema.sql`. If you already have a database (e.g. on Neon), run
+`sql/migrations/001_holidays.sql` once to add the `holidays` table. It is safe to run more than once.
 
 ## Environment Variables
 
@@ -114,6 +123,8 @@ VITE_API_BASE_URL=https://your-render-backend-url.onrender.com
 PORT=5000
 DATABASE_URL=your_neon_database_url
 JWT_SECRET=your_jwt_secret
+# Optional. "Today" for booking rules is computed in this timezone (default Asia/Kolkata).
+APP_TIMEZONE=Asia/Kolkata
 ```
 
 ## Local Setup

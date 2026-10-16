@@ -6,6 +6,7 @@ const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const historyRoutes = require("./routes/historyRoutes");
+const holidayRoutes = require("./routes/holidayRoutes");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/history", historyRoutes);
+app.use("/api/holidays", holidayRoutes);
 
 app.get("/", (req, res) => {
   res.send("Period Booking API Running");

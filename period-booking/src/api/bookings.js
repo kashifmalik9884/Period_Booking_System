@@ -12,7 +12,9 @@ const authConfig = (token) => ({
 
 export const getBookings = () => API.get("/api/bookings");
 
-export const createBooking = (data) => API.post("/api/bookings", data);
+// Pass the admin token to let an admin book today. Visitors call it without a token.
+export const createBooking = (data, token) =>
+  API.post("/api/bookings", data, token ? authConfig(token) : undefined);
 
 export const updateBooking = (id, data, token) =>
   API.put(`/api/bookings/${id}`, data, authConfig(token));
@@ -26,3 +28,11 @@ export const loginAdmin = adminLogin;
 
 export const getHistory = (token) =>
   API.get("/api/history", authConfig(token));
+
+export const getHolidays = () => API.get("/api/holidays");
+
+export const addHoliday = (data, token) =>
+  API.post("/api/holidays", data, authConfig(token));
+
+export const deleteHoliday = (id, token) =>
+  API.delete(`/api/holidays/${id}`, authConfig(token));

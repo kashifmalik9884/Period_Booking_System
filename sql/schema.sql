@@ -7,6 +7,7 @@ CREATE TABLE admins (
 
 CREATE TABLE bookings (
   id SERIAL PRIMARY KEY,
+  booking_date DATE NOT NULL,
   day_name VARCHAR(20) NOT NULL,
   period_no INT NOT NULL,
   room_name VARCHAR(20) NOT NULL,
@@ -14,10 +15,20 @@ CREATE TABLE bookings (
   purpose VARCHAR(200) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT unique_booking_slot UNIQUE (day_name, period_no, room_name),
+  -- A slot is unique per calendar date, not per weekday name.
+  CONSTRAINT unique_booking_slot UNIQUE (booking_date, period_no, room_name),
   CONSTRAINT valid_day_name CHECK (day_name IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')),
   CONSTRAINT valid_period_no CHECK (period_no BETWEEN 1 AND 7),
   CONSTRAINT valid_room_name CHECK (room_name IN ('AV Room 1', 'AV Room 2'))
+);
+
+-- Days the school is closed. Slots on these dates show as "Holiday" and cannot be booked.
+CREATE TABLE holidays (
+  id SERIAL PRIMARY KEY,
+  holiday_date DATE UNIQUE NOT NULL,
+  reason VARCHAR(200) NOT NULL DEFAULT 'Holiday',
+  created_by VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE booking_history (

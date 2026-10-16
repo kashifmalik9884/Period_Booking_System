@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const { addHistory } = require("../utils/audit");
+const { isValidDateString, getDayName, getTodayDateString } = require("../utils/dates");
 
 const validDays = [
   "Monday",
@@ -12,42 +13,36 @@ const validDays = [
 
 const validRooms = ["AV Room 1", "AV Room 2"];
 
-const getDayNameFromDate = (dateString) => {
-  const date = new Date(`${dateString}T00:00:00`);
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return days[date.getDay()];
-};
-
-const getTodayDateString = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const validateBookingInput = ({
-  booking_date,
-  period_no,
-  room_name,
-  booked_by,
-  purpose,
-}) => {
+// Public visitors can only book future dates. Admins can also book today.
+const validateBookingInput = (
+  { booking_date, period_no, room_name, booked_by, purpose },
+  isAdmin
+) => {
   if (!booking_date) {
     return "Booking date is required";
   }
 
-  const dayName = getDayNameFromDate(booking_date);
+  if (!isValidDateString(booking_date)) {
+    return "Booking date must be a valid date";
+  }
 
-  if (!validDays.includes(dayName)) {
+  if (!validDays.includes(getDayName(booking_date))) {
     return "Bookings are allowed only from Monday to Saturday";
   }
 
-  if (booking_date <= getTodayDateString()) {
+  const today = getTodayDateString();
+
+  if (isAdmin) {
+    if (booking_date < today) {
+      return "You cannot book a past date";
+    }
+  } else if (booking_date <= today) {
     return "You can book only future dates";
   }
 
-  if (!period_no || Number(period_no) < 1 || Number(period_no) > 7) {
+  const period = Number(period_no);
+
+  if (!Number.isInteger(period) || period < 1 || period > 7) {
     return "Period number must be between 1 and 7";
   }
 
@@ -55,16 +50,35 @@ const validateBookingInput = ({
     return "Valid room is required";
   }
 
-  if (!booked_by || !booked_by.trim()) {
+  if (typeof booked_by !== "string" || !booked_by.trim()) {
     return "Booked by is required";
   }
 
-  if (!purpose || !purpose.trim()) {
+  if (booked_by.trim().length > 100) {
+    return "Booked by must be 100 characters or fewer";
+  }
+
+  if (typeof purpose !== "string" || !purpose.trim()) {
     return "Purpose is required";
+  }
+
+  if (purpose.trim().length > 200) {
+    return "Purpose must be 200 characters or fewer";
   }
 
   return null;
 };
+
+const findHoliday = async (dateString) => {
+  const result = await pool.query("SELECT * FROM holidays WHERE holiday_date = $1", [
+    dateString,
+  ]);
+
+  return result.rows[0] || null;
+};
+
+const holidayMessage = (holiday) =>
+  `${holiday.holiday_date} is a holiday (${holiday.reason}). Slots cannot be booked on holidays.`;
 
 exports.getBookings = async (req, res) => {
   try {
@@ -81,26 +95,33 @@ exports.getBookings = async (req, res) => {
 
 exports.createBooking = async (req, res) => {
   const { booking_date, period_no, room_name, booked_by, purpose } = req.body;
-  const day_name = getDayNameFromDate(booking_date);
+  const isAdmin = req.user?.role === "admin";
 
-  const validationError = validateBookingInput({
-    booking_date,
-    period_no,
-    room_name,
-    booked_by,
-    purpose,
-  });
+  const validationError = validateBookingInput(req.body, isAdmin);
 
   if (validationError) {
     return res.status(400).json({ message: validationError });
   }
 
   try {
+    const holiday = await findHoliday(booking_date);
+
+    if (holiday) {
+      return res.status(409).json({ message: holidayMessage(holiday) });
+    }
+
     const result = await pool.query(
       `INSERT INTO bookings (booking_date, day_name, period_no, room_name, booked_by, purpose)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [booking_date, day_name, Number(period_no), room_name, booked_by.trim(), purpose.trim()]
+      [
+        booking_date,
+        getDayName(booking_date),
+        Number(period_no),
+        room_name,
+        booked_by.trim(),
+        purpose.trim(),
+      ]
     );
 
     await addHistory({
@@ -124,15 +145,9 @@ exports.createBooking = async (req, res) => {
 exports.updateBooking = async (req, res) => {
   const { id } = req.params;
   const { booking_date, period_no, room_name, booked_by, purpose } = req.body;
-  const day_name = getDayNameFromDate(booking_date);
 
-  const validationError = validateBookingInput({
-    booking_date,
-    period_no,
-    room_name,
-    booked_by,
-    purpose,
-  });
+  // This route is admin-only, so admin rules apply.
+  const validationError = validateBookingInput(req.body, true);
 
   if (validationError) {
     return res.status(400).json({ message: validationError });
@@ -147,6 +162,12 @@ exports.updateBooking = async (req, res) => {
 
     const oldData = oldResult.rows[0];
 
+    const holiday = await findHoliday(booking_date);
+
+    if (holiday) {
+      return res.status(409).json({ message: holidayMessage(holiday) });
+    }
+
     const result = await pool.query(
       `UPDATE bookings
        SET booking_date = $1,
@@ -158,7 +179,15 @@ exports.updateBooking = async (req, res) => {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $7
        RETURNING *`,
-      [booking_date, day_name, Number(period_no), room_name, booked_by.trim(), purpose.trim(), id]
+      [
+        booking_date,
+        getDayName(booking_date),
+        Number(period_no),
+        room_name,
+        booked_by.trim(),
+        purpose.trim(),
+        id,
+      ]
     );
 
     await addHistory({

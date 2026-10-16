@@ -8,22 +8,14 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
 
   if (loading) {
     return (
-      <div className="page-shell">
-        <div className="card">
-          <p className="info-text">Loading...</p>
-        </div>
+      <div className="card">
+        <p className="info-text">Loading...</p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    return (
-      <Navigate
-        to="/admin"
-        replace
-        state={{ from: location }}
-      />
-    );
+    return <Navigate to="/admin" replace state={{ from: location }} />;
   }
 
   if (adminOnly && !isAdmin) {

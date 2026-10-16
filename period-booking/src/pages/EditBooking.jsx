@@ -1,19 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getBookings, updateBooking, deleteBooking } from "../api/bookings";
+import { deleteBooking, getBookings, updateBooking } from "../api/bookings";
+import PageHeader from "../components/PageHeader";
 import { useAuth } from "../context/AuthContext";
+import { formatWeekday, getTodayKey, normalizeDate } from "../utils/dates";
 
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const periods = [1, 2, 3, 4, 5, 6, 7];
 const rooms = ["AV Room 1", "AV Room 2"];
 
 export default function EditBooking() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { token, admin, logout } = useAuth();
+  const { token } = useAuth();
 
   const [form, setForm] = useState({
-    day_name: "Monday",
+    booking_date: "",
     period_no: 1,
     room_name: "AV Room 1",
     booked_by: "",
@@ -24,6 +25,8 @@ export default function EditBooking() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const todayKey = useMemo(() => getTodayKey(), []);
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -38,13 +41,13 @@ export default function EditBooking() {
         }
 
         setForm({
-          day_name: booking.day_name,
+          booking_date: normalizeDate(booking.booking_date),
           period_no: Number(booking.period_no),
           room_name: booking.room_name,
           booked_by: booking.booked_by,
           purpose: booking.purpose,
         });
-      } catch (error) {
+      } catch (requestError) {
         setError("Failed to load booking");
       } finally {
         setLoading(false);
@@ -56,6 +59,7 @@ export default function EditBooking() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     setForm((prev) => ({
       ...prev,
       [name]: name === "period_no" ? Number(value) : value,
@@ -73,10 +77,10 @@ export default function EditBooking() {
       setSuccess("Booking updated successfully");
 
       setTimeout(() => {
-        navigate("/");
+        navigate("/bookings");
       }, 800);
-    } catch (error) {
-      setError(error.response?.data?.message || "Failed to update booking");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Failed to update booking");
     } finally {
       setSaving(false);
     }
@@ -84,6 +88,7 @@ export default function EditBooking() {
 
   const handleDelete = async () => {
     const confirmed = window.confirm("Are you sure you want to delete this booking?");
+
     if (!confirmed) {
       return;
     }
@@ -91,9 +96,9 @@ export default function EditBooking() {
     try {
       setDeleting(true);
       await deleteBooking(id, token);
-      navigate("/");
-    } catch (error) {
-      setError(error.response?.data?.message || "Failed to delete booking");
+      navigate("/bookings");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Failed to delete booking");
     } finally {
       setDeleting(false);
     }
@@ -101,34 +106,25 @@ export default function EditBooking() {
 
   if (loading) {
     return (
-      <div className="page-shell">
-        <div className="card">
-          <p className="info-text">Loading booking details...</p>
-        </div>
+      <div className="card">
+        <p className="info-text">Loading booking details...</p>
       </div>
     );
   }
 
-  return (
-    <div className="page-shell">
-      <div className="page-header">
-        <div>
-          <h2>Edit Booking</h2>
-          <p className="page-subtitle">
-            Admin can update booking details or delete the booking permanently.
-          </p>
-        </div>
+  const busy = saving || deleting;
 
-        <div className="header-actions">
-          {admin && <span className="admin-badge">Admin: {admin.username}</span>}
-          <button className="secondary-btn" onClick={() => navigate("/")}>
-            Back to Home
-          </button>
-          <button className="danger-btn" onClick={logout}>
-            Logout
-          </button>
-        </div>
-      </div>
+  return (
+    <>
+      <PageHeader
+        kicker="Admin"
+        title="Edit booking"
+        subtitle="Update the details or delete the booking permanently."
+      >
+        <button type="button" className="secondary-btn" onClick={() => navigate(-1)}>
+          Back
+        </button>
+      </PageHeader>
 
       <div className="card">
         {error && <p className="error-text">{error}</p>}
@@ -136,94 +132,79 @@ export default function EditBooking() {
 
         <form className="edit-form" onSubmit={handleUpdate}>
           <div className="form-grid">
-            <div>
-              <label className="field-label">Day</label>
-              <select
-                name="day_name"
-                value={form.day_name}
+            <label className="field">
+              <span className="field-label">
+                Date{form.booking_date ? ` · ${formatWeekday(form.booking_date)}` : ""}
+              </span>
+              <input
+                type="date"
+                name="booking_date"
+                min={todayKey}
+                value={form.booking_date}
                 onChange={handleChange}
-                disabled={saving || deleting}
-              >
-                {days.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-            </div>
+                disabled={busy}
+              />
+            </label>
 
-            <div>
-              <label className="field-label">Period</label>
-              <select
-                name="period_no"
-                value={form.period_no}
-                onChange={handleChange}
-                disabled={saving || deleting}
-              >
+            <label className="field">
+              <span className="field-label">Period</span>
+              <select name="period_no" value={form.period_no} onChange={handleChange} disabled={busy}>
                 {periods.map((period) => (
                   <option key={period} value={period}>
                     Period {period}
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div>
-              <label className="field-label">Room</label>
-              <select
-                name="room_name"
-                value={form.room_name}
-                onChange={handleChange}
-                disabled={saving || deleting}
-              >
+            <label className="field">
+              <span className="field-label">Room</span>
+              <select name="room_name" value={form.room_name} onChange={handleChange} disabled={busy}>
                 {rooms.map((room) => (
                   <option key={room} value={room}>
                     {room}
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div>
-              <label className="field-label">Booked By</label>
+            <label className="field">
+              <span className="field-label">Booked by</span>
               <input
                 name="booked_by"
                 value={form.booked_by}
+                maxLength={100}
                 onChange={handleChange}
-                disabled={saving || deleting}
+                disabled={busy}
                 placeholder="Booked by"
               />
-            </div>
+            </label>
 
-            <div className="full-width">
-              <label className="field-label">Purpose</label>
+            <label className="field full-width">
+              <span className="field-label">Purpose</span>
               <textarea
                 name="purpose"
                 value={form.purpose}
+                maxLength={200}
                 onChange={handleChange}
-                disabled={saving || deleting}
+                disabled={busy}
                 placeholder="Enter purpose"
                 rows="4"
               />
-            </div>
+            </label>
           </div>
 
           <div className="page-actions">
-            <button type="submit" className="primary-btn" disabled={saving || deleting}>
-              {saving ? "Saving..." : "Update Booking"}
+            <button type="submit" className="primary-btn" disabled={busy}>
+              {saving ? "Saving..." : "Update booking"}
             </button>
 
-            <button
-              type="button"
-              className="danger-btn"
-              onClick={handleDelete}
-              disabled={saving || deleting}
-            >
-              {deleting ? "Deleting..." : "Delete Booking"}
+            <button type="button" className="danger-btn" onClick={handleDelete} disabled={busy}>
+              {deleting ? "Deleting..." : "Delete booking"}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </>
   );
 }
